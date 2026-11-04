@@ -45,7 +45,7 @@ export default function WorkspaceExplorer({ onOpenTerminal }: { onOpenTerminal: 
     if (dirty && !window.confirm("Discard unsaved changes?")) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const data = await request("/api/workspace?op=read&path=" + encodeURIComponent(item.path));
+      const data = await request("/api/workspace?op=download&path=" + encodeURIComponent(item.path));
       setSelected(item.path); setContent(data.content); setDirty(false);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not open file."); }
     finally { setBusy(false); }
