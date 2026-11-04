@@ -8,7 +8,7 @@ export const maxDuration = 30;
 
 type CommandResult = { stdout: string; stderr: string; exitCode: number };
 async function run(sandbox: Sandbox, cmd: string, args: string[] = [], cwd = WORKSPACE_ROOT): Promise<CommandResult> {
-  const result = await sandbox.runCommand({ cmd, args, cwd, timeout: 20_000 });
+  const result = await sandbox.runCommand({ cmd, args, cwd });
   return { stdout: await result.stdout(), stderr: await result.stderr(), exitCode: result.exitCode };
 }
 function safeRepo(value: unknown) {
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
   try {
     sandbox = await openSandbox();
     const op = request.nextUrl.searchParams.get("op") || "overview";
-    const ghVersion = await run(sandbox, "gh", ["--version"]);
+    const ghVersion = await run(sandbox, "bash", ["-lc", "command -v gh >/dev/null 2>&1"]);
     const installed = ghVersion.exitCode === 0;
     if (!installed) return NextResponse.json({ installed: false, authenticated: false, error: "GitHub CLI (gh) is not installed in this workspace yet." });
     const auth = await run(sandbox, "gh", ["auth", "status"]);
@@ -136,6 +136,12 @@ export async function POST(request: NextRequest) {
       const message = safeMessage(body.message);
       const add = await run(sandbox, "git", ["add", "-A"], directory);
       if (add.exitCode !== 0) return responseError(add.stderr || "Could not stage changes.", 409);
+      const staged = await run(sandbox, "git", ["diff", "--cached", "--name-only"], directory);
+      const risky = staged.stdout.split("\n").filter((name) => /(^|\/)\.env($|\.(?!example$))|\.(pem|key)$|(^|\/)(id_rsa|credentials\.json|secrets?\.[^/]+)$/i.test(name));
+      if (risky.length) {
+        await run(sandbox, "git", ["reset", "-q", "--", ...risky], directory);
+        return responseError("Commit blocked: sensitive-looking files were excluded from staging: " + risky.join(", ") + ". Review them and stage only files you intend to publish.", 409);
+      }
       const commit = await run(sandbox, "git", ["commit", "-m", message], directory);
       if (commit.exitCode !== 0) return responseError(commit.stderr || "Commit failed. There may be no changes to commit.", 409);
       return NextResponse.json({ ok: true, output: commit.stdout });
