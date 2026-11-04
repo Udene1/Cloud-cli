@@ -50,6 +50,7 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const [tab, setTab] = useState("Terminal");
   const [terminalMode, setTerminalMode] = useState<"commands" | "interactive">("interactive");
+  const [terminalNotice, setTerminalNotice] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(1);
   const history = useRef<string[]>([]);
@@ -124,13 +125,13 @@ export default function Home() {
     <section className="main">
       <header className="topbar"><span>Workspace&nbsp; / &nbsp;<b>{tab}</b></span><div><small>LHR · LONDON</small><strong>⌑ PRIVATE</strong></div></header>
       <div className="content">
-        <div className="heading"><div><p className="eyebrow">CLOUD OPERATIONS / 01</p><h1>{tab}</h1><p className="muted">{tab === "Terminal" ? "Run commands, generate code and work across your cloud projects." : "One-click workflows for common development and infrastructure tasks."}</p></div><span className="ready"><i/> SYSTEM READY</span></div>
+        <div className="heading"><div><p className="eyebrow">CLOUD OPERATIONS / 01</p><h1>{tab}</h1><p className="muted">{tab === "Terminal" ? "Run commands, generate code and work across your cloud projects." : tab === "GitHub" ? "Connect repositories, manage branches, commit changes and open pull requests." : "One-click workflows for common development and infrastructure tasks."}</p></div><span className="ready"><i/> SYSTEM READY</span></div>
         {tab === "Quick commands" && <div className="quick-grid">{quick.map(([label, cmd, detail]) => <button className="quick" key={label} onClick={() => { setTab("Terminal"); void run(cmd); }}><b>{label} ↗</b><small>{detail}</small><code>{cmd}</code></button>)}</div>}
         {tab === "Files" && <WorkspaceExplorer onOpenTerminal={(directory) => { setCwd(directory); try { localStorage.setItem("cloudcli-cwd", directory); } catch { /* storage may be unavailable */ } setTab("Terminal"); setTerminalMode("interactive"); }} />}
-        {tab === "GitHub" && <GitHubIntegration onOpenTerminal={() => { setTab("Terminal"); setTerminalMode("interactive"); }} />}
+        {tab === "GitHub" && <GitHubIntegration onOpenTerminal={(loginCommand) => { setTerminalNotice(loginCommand); setTab("Terminal"); setTerminalMode("interactive"); }} />}
         {tab === "Terminal" && <section className="terminal">
           <div className="terminal-head"><div className="lights"><i/><i/><i/></div><span>cloudcli / workspace / bash</span><div className="terminal-mode-switch"><button className={terminalMode === "interactive" ? "selected" : ""} onClick={() => setTerminalMode("interactive")}>Interactive</button><button className={terminalMode === "commands" ? "selected" : ""} onClick={() => setTerminalMode("commands")}>Command mode</button></div><small>● WORKSPACE</small></div>
-          {terminalMode === "interactive" ? <InteractiveTerminal cwd={cwd} /> : <div className="terminal-body" onClick={() => input.current?.focus()}>
+          {terminalMode === "interactive" ? <>{terminalNotice && <div className="terminal-notice"><span>GitHub login · paste this command into the shell</span><code>{terminalNotice}</code><button onClick={() => { void navigator.clipboard.writeText(terminalNotice); }}>Copy command</button></div>}<InteractiveTerminal cwd={cwd} /></> : <div className="terminal-body" onClick={() => input.current?.focus()}>
             <div className="welcome"><span>✳</span><div><b>CloudCLI workspace initialized</b><p>Linux environment ready. Your files persist between commands.</p><small>Type <button onClick={(e) => { e.stopPropagation(); void run("help"); }}>help</button> to see available commands.</small></div></div>
             {entries.map((e) => <div className="entry" key={e.id}><div className="cmd"><b>{shellLabel(e.cwd || "/vercel/sandbox")}</b> {e.command}</div>{e.stdout && <pre>{e.stdout}</pre>}{e.stderr && <pre className="stderr">{e.stderr}</pre>}{e.error && <pre className="stderr">{e.error}</pre>}{e.exitCode !== undefined && <small className={e.exitCode === 0 ? "success" : "failure"}>{e.exitCode === 0 ? "✓ completed" : "× exit " + e.exitCode} {e.durationMs ? " · " + (e.durationMs / 1000).toFixed(2) + "s" : ""}</small>}</div>)}
             {running && <div className="running">◌ Executing in isolated sandbox…</div>}
