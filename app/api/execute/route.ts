@@ -45,8 +45,14 @@ export async function POST(request: NextRequest) {
     sandbox = await Sandbox.getOrCreate({
       name: "cloudcli-workspace", timeout: 300000, persistent: true, resources: { vcpus: 1 }
     });
+    // The sandbox image does not guarantee that /vercel/sandbox exists.
+    // Bootstrap the persistent workspace from the known-present filesystem root.
+    const bootstrap = await sandbox.runCommand({ cmd: "bash", args: ["-lc", "mkdir -p /vercel/sandbox"], cwd: "/" });
+    if (bootstrap.exitCode !== 0) {
+      return NextResponse.json({ error: "Could not initialize the CloudCLI workspace: " + clip(await bootstrap.stderr()) }, { status: 500 });
+    }
     if (generated) {
-      await sandbox.writeFiles([{ path: generated.name, content: Buffer.from(generated.content, "utf8") }]);
+      await sandbox.writeFiles([{ path: "/vercel/sandbox/" + generated.name, content: Buffer.from(generated.content, "utf8") }]);
       const runner = generated.name.endsWith(".py") ? "python3 " : generated.name.endsWith(".ts") ? "npx tsx " : generated.name.endsWith(".html") ? "python3 -m http.server 8000  # then open localhost:8000" : generated.name.endsWith(".jsx") || generated.name.endsWith(".sol") || generated.name.endsWith(".sql") || generated.name.endsWith(".md") ? "cat " : "node ";
       return NextResponse.json({
         ok: true, command, exitCode: 0,
