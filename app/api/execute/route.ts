@@ -76,8 +76,10 @@ export async function POST(request: NextRequest) {
     }
     const env: Record<string, string> = {};
     if (/\bvercel\b/.test(command) && process.env.CLOUDCLI_VERCEL_TOKEN) env.VERCEL_TOKEN = process.env.CLOUDCLI_VERCEL_TOKEN;
-    const wrappedCommand = command + "\n__cloudcli_exit=$?\nprintf '\\n__CLOUDCLI_CWD__%s' \"$PWD\"\nexit \"$__cloudcli_exit\"";
-    const result = await sandbox.runCommand({ cmd: "bash", args: ["-lc", wrappedCommand], cwd, env });
+    // Explicitly enter the validated workspace directory. Do not rely only on
+    // Sandbox.runCommand(cwd): login-shell startup can reset the working directory.
+    const wrappedCommand = "cd " + JSON.stringify(cwd) + " || exit 1\n" + command + "\n__cloudcli_exit=$?\nprintf '\\n__CLOUDCLI_CWD__%s' \"$PWD\"\nexit \"$__cloudcli_exit\"";
+    const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", wrappedCommand], cwd: "/", env });
     const rawStdout = await result.stdout();
     const marker = "\n__CLOUDCLI_CWD__";
     const markerIndex = rawStdout.lastIndexOf(marker);
