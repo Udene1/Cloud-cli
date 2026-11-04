@@ -9,6 +9,9 @@ export default function InteractiveTerminal({ cwd }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<XTerm | null>(null);
   const socket = useRef<WebSocket | null>(null);
+  const resizeHandler = useRef<(() => void) | null>(null);
+  const ctrlArmedRef = useRef(false);
+  const [ctrlArmed, setCtrlArmed] = useState(false);
   const [state, setState] = useState<"disconnected" | "connecting" | "connected" | "error">("disconnected");
   const [message, setMessage] = useState("Connect to start an interactive Bash session.");
   const [busy, setBusy] = useState(false);
@@ -34,7 +37,7 @@ export default function InteractiveTerminal({ cwd }: Props) {
         ws.send(JSON.stringify({
           type: "start",
           command: "bash",
-          args: ["-l"],
+          args: ["--noprofile", "--norc", "-i"],
           env: [
             "TERM=xterm-256color",
             "COLORTERM=truecolor",
@@ -103,22 +106,33 @@ export default function InteractiveTerminal({ cwd }: Props) {
       terminal.current = term;
       fit = addon;
       term.onData((input) => {
-        if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(new TextEncoder().encode(input));
+        let outgoing = input;
+        if (ctrlArmedRef.current && input.length === 1) {
+          const code = input.toLowerCase().charCodeAt(0);
+          if (code >= 97 && code <= 122) outgoing = String.fromCharCode(code - 96);
+          ctrlArmedRef.current = false;
+          setCtrlArmed(false);
+        }
+        if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(new TextEncoder().encode(outgoing));
       });
       const resize = () => { addon.fit(); if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })); };
       window.addEventListener("resize", resize);
+      resizeHandler.current = resize;
       term.write("CloudCLI interactive terminal\\r\\n");
       term.write("Tap Connect to open a persistent Bash shell.\\r\\n");
-      return () => window.removeEventListener("resize", resize);
     })();
     return () => {
       disposed = true;
       socket.current?.close();
+      if (resizeHandler.current) window.removeEventListener("resize", resizeHandler.current);
+      resizeHandler.current = null;
       fit?.dispose();
       terminal.current?.dispose();
       terminal.current = null;
     };
   }, []);
+
+  function armCtrl() { ctrlArmedRef.current = true; setCtrlArmed(true); terminal.current?.focus(); }
 
   function sendKey(value: string) {
     if (socket.current?.readyState === WebSocket.OPEN) {
@@ -142,6 +156,7 @@ export default function InteractiveTerminal({ cwd }: Props) {
     </div>
     <div className="xterm-host" ref={host} onClick={() => terminal.current?.focus()} />
     <div className="mobile-keys" aria-label="Terminal special keys">
+      <button type="button" className={ctrlArmed ? "armed" : ""} onClick={armCtrl} disabled={state !== "connected"}>Ctrl{ctrlArmed ? " · armed" : ""}</button>
       {shortcuts.map(([label, value]) => <button type="button" key={label} onClick={() => sendKey(value)} disabled={state !== "connected"}>{label}</button>)}
     </div>
     <div className="interactive-hint">{message} <span>For Nano: Ctrl+O saves · Enter confirms · Ctrl+X exits.</span></div>
