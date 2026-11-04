@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import path from "node:path";
 import { Sandbox } from "@vercel/sandbox";
 import { isAuthenticated } from "@/lib/auth";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const MAX_COMMAND = 3000;
 const MAX_OUTPUT = 24000;
+const WORKSPACE_ROOT = "/vercel/sandbox";
+
+function resolveWorkspaceCwd(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return WORKSPACE_ROOT;
+  const resolved = path.resolve(WORKSPACE_ROOT, value);
+  if (resolved !== WORKSPACE_ROOT && !resolved.startsWith(WORKSPACE_ROOT + path.sep)) {
+    throw new Error("Working directory must stay inside /vercel/sandbox.");
+  }
+  return resolved;
+}
 
 function generatedFile(command: string): { name: string; content: string } | null | "invalid" {
   const match = command.trim().match(/^generate\s+(node|python|typescript|html|react|solidity|sql|markdown)\s+([a-zA-Z0-9._-]+)$/i);
@@ -29,12 +40,15 @@ function clip(text: string) {
 }
 export async function POST(request: NextRequest) {
   if (!isAuthenticated(request)) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  let body: { command?: unknown };
+  let body: { command?: unknown; cwd?: unknown };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const command = typeof body.command === "string" ? body.command.trim() : "";
   if (!command) return NextResponse.json({ error: "Enter a command." }, { status: 400 });
   if (command.length > MAX_COMMAND) return NextResponse.json({ error: "Command exceeds the 3,000 character limit." }, { status: 413 });
   if (command.includes("\0")) return NextResponse.json({ error: "Null bytes are not allowed." }, { status: 400 });
+  let cwd: string;
+  try { cwd = resolveWorkspaceCwd(body.cwd); }
+  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid working directory." }, { status: 400 }); }
 
   const generated = generatedFile(command);
   if (generated === "invalid") return NextResponse.json({ error: "Usage: generate node|python|typescript|html|react|solidity|sql|markdown <filename>" }, { status: 400 });
@@ -52,20 +66,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Could not initialize the CloudCLI workspace: " + clip(await bootstrap.stderr()) }, { status: 500 });
     }
     if (generated) {
-      await sandbox.writeFiles([{ path: "/vercel/sandbox/" + generated.name, content: Buffer.from(generated.content, "utf8") }]);
+      await sandbox.writeFiles([{ path: path.join(cwd, generated.name), content: Buffer.from(generated.content, "utf8") }]);
       const runner = generated.name.endsWith(".py") ? "python3 " : generated.name.endsWith(".ts") ? "npx tsx " : generated.name.endsWith(".html") ? "python3 -m http.server 8000  # then open localhost:8000" : generated.name.endsWith(".jsx") || generated.name.endsWith(".sol") || generated.name.endsWith(".sql") || generated.name.endsWith(".md") ? "cat " : "node ";
       return NextResponse.json({
         ok: true, command, exitCode: 0,
-        stdout: "Created /vercel/sandbox/" + generated.name + "\nRun it with: " + runner + generated.name,
-        stderr: "", durationMs: Date.now() - started
+        stdout: "Created " + path.join(cwd, generated.name) + "\nRun it with: " + runner + generated.name,
+        stderr: "", durationMs: Date.now() - started, cwd
       });
     }
     const env: Record<string, string> = {};
     if (/\bvercel\b/.test(command) && process.env.CLOUDCLI_VERCEL_TOKEN) env.VERCEL_TOKEN = process.env.CLOUDCLI_VERCEL_TOKEN;
-    const result = await sandbox.runCommand({ cmd: "bash", args: ["-lc", command], cwd: "/vercel/sandbox", env });
+    const wrappedCommand = command + "\n__cloudcli_exit=$?\nprintf '\\n__CLOUDCLI_CWD__%s' \"$PWD\"\nexit \"$__cloudcli_exit\"";
+    const result = await sandbox.runCommand({ cmd: "bash", args: ["-lc", wrappedCommand], cwd, env });
+    const rawStdout = await result.stdout();
+    const marker = "\n__CLOUDCLI_CWD__";
+    const markerIndex = rawStdout.lastIndexOf(marker);
+    let nextCwd = cwd;
+    let stdout = rawStdout;
+    if (markerIndex >= 0) {
+      const reported = rawStdout.slice(markerIndex + marker.length).trim();
+      try { nextCwd = resolveWorkspaceCwd(reported); } catch { nextCwd = cwd; }
+      stdout = rawStdout.slice(0, markerIndex);
+    }
     return NextResponse.json({
       ok: result.exitCode === 0, command, exitCode: result.exitCode,
-      stdout: clip(await result.stdout()), stderr: clip(await result.stderr()), durationMs: Date.now() - started
+      stdout: clip(stdout), stderr: clip(await result.stderr()), durationMs: Date.now() - started, cwd: nextCwd
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Command execution failed.";
