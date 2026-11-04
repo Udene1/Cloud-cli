@@ -118,8 +118,8 @@ export default function InteractiveTerminal({ cwd }: Props) {
       const resize = () => { addon.fit(); if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })); };
       window.addEventListener("resize", resize);
       resizeHandler.current = resize;
-      term.write("CloudCLI interactive terminal\\r\\n");
-      term.write("Tap Connect to open a persistent Bash shell.\\r\\n");
+      term.write("CloudCLI interactive terminal\r\n");
+      term.write("Tap Connect to open a persistent Bash shell.\r\n");
     })();
     return () => {
       disposed = true;
@@ -142,9 +142,9 @@ export default function InteractiveTerminal({ cwd }: Props) {
   }
 
   const shortcuts = [
-    ["Tab", "\\t"], ["Esc", "\\x1b"], ["Ctrl+C", "\\x03"], ["Ctrl+D", "\\x04"],
-    ["Ctrl+O · Save", "\\x0f"], ["Ctrl+X · Exit", "\\x18"],
-    ["↑", "\\x1b[A"], ["↓", "\\x1b[B"], ["←", "\\x1b[D"], ["→", "\\x1b[C"],
+    ["Tab", "\t"], ["Esc", "\x1b"], ["Ctrl+C", "\x03"], ["Ctrl+D", "\x04"],
+    ["Ctrl+O · Save", "\x0f"], ["Ctrl+X · Exit", "\x18"],
+    ["↑", "\x1b[A"], ["↓", "\x1b[B"], ["←", "\x1b[D"], ["→", "\x1b[C"],
   ] as const;
 
   return <section className="interactive-panel">
