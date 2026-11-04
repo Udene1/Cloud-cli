@@ -106,14 +106,20 @@ export async function POST(request: NextRequest) {
     const action = body.action;
     if (action === "clone") {
       const repository = safeRepo(body.repository);
-      const slug = repository.split("/")[1];
-      const target = workspacePath("repositories/" + slug);
-      await sandbox.runCommand({ cmd: "mkdir", args: ["-p", workspacePath("repositories")], cwd: WORKSPACE_ROOT });
+      const [owner, slug] = repository.split("/");
+      const target = workspacePath("repositories/" + owner + "/" + slug);
+      await sandbox.runCommand({ cmd: "mkdir", args: ["-p", workspacePath("repositories/" + owner)], cwd: WORKSPACE_ROOT });
       const exists = await sandbox.fs.stat(target).then(() => true).catch(() => false);
       if (exists) return responseError("A folder with this repository name already exists in /repositories. Remove or rename it before cloning.");
       const result = await run(sandbox, "gh", ["repo", "clone", repository, target], WORKSPACE_ROOT);
       if (result.exitCode !== 0) return responseError(result.stderr || result.stdout || "Clone failed.", 502);
-      return NextResponse.json({ ok: true, path: target, output: result.stdout || "Repository cloned." });
+      const identity = await run(sandbox, "gh", ["api", "user", "--jq", ".login + \"|\" + (.id|tostring)"]);
+      const [login, id] = identity.stdout.trim().split("|");
+      if (identity.exitCode === 0 && login && /^\\d+$/.test(id || "")) {
+        await run(sandbox, "git", ["config", "user.name", login], target);
+        await run(sandbox, "git", ["config", "user.email", id + "+" + login + "@users.noreply.github.com"], target);
+      }
+      return NextResponse.json({ ok: true, path: target, output: result.stdout || "Repository cloned. Git author identity configured." });
     }
     const directory = await repoDirectory(sandbox, body.path);
     if (action === "create-branch") {
