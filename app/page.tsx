@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 
-type Entry = { id: number; command: string; stdout?: string; stderr?: string; exitCode?: number; durationMs?: number; error?: string };
+type Entry = { id: number; command: string; cwd?: string; stdout?: string; stderr?: string; exitCode?: number; durationMs?: number; error?: string };
 const quick = [
   ["Runtime versions", "node --version && npm --version && python3 --version", "Check installed runtimes"],
   ["Vercel CLI", "npx vercel --version", "Check the Vercel CLI"],
@@ -13,6 +13,12 @@ const quick = [
   ["Generate SQL schema", "generate sql schema.sql", "Create a PostgreSQL schema starter"],
   ["List workspace files", "ls -la", "Inspect persistent workspace files"]
 ];
+function shellLabel(directory: string) {
+  const root = "/vercel/sandbox";
+  const relative = directory === root ? "~" : directory.startsWith(root + "/") ? "~/" + directory.slice(root.length + 1) : directory;
+  return "ken@cloudcli " + relative + " $";
+}
+
 const helpText = [
   "CloudCLI commands", "",
   "  help                              Show this help",
@@ -35,6 +41,7 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [command, setCommand] = useState("");
+  const [cwd, setCwd] = useState("/vercel/sandbox");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [running, setRunning] = useState(false);
   const [tab, setTab] = useState("Terminal");
@@ -46,6 +53,8 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/auth/session").then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
     try { history.current = JSON.parse(localStorage.getItem("cloudcli-history") || "[]").filter((x: unknown): x is string => typeof x === "string").slice(-100); } catch { history.current = []; }
+    const savedCwd = localStorage.getItem("cloudcli-cwd");
+    if (savedCwd?.startsWith("/vercel/sandbox")) setCwd(savedCwd);
   }, []);
 
   async function login(event: FormEvent) {
@@ -67,10 +76,11 @@ export default function Home() {
     if (value === "clear") { setEntries([]); return; }
     if (value === "help") { setEntries((old) => [...old, { id: nextId.current++, command: value, stdout: helpText, exitCode: 0 }]); return; }
     const id = nextId.current++;
-    setEntries((old) => [...old, { id, command: value }]); setRunning(true);
+    setEntries((old) => [...old, { id, command: value, cwd }]); setRunning(true);
     try {
-      const r = await fetch("/api/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: value }) });
+      const r = await fetch("/api/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: value, cwd }) });
       const data = await r.json();
+      if (typeof data.cwd === "string" && data.cwd.startsWith("/vercel/sandbox")) { setCwd(data.cwd); try { localStorage.setItem("cloudcli-cwd", data.cwd); } catch { /* storage may be unavailable */ } }
       setEntries((old) => old.map((e) => e.id === id ? { ...e, stdout: data.stdout, stderr: data.stderr, exitCode: data.exitCode, durationMs: data.durationMs, error: data.error } : e));
       if (r.status === 401) setAuthenticated(false);
     } catch {
@@ -113,9 +123,9 @@ export default function Home() {
           <div className="terminal-head"><div className="lights"><i/><i/><i/></div><span>cloudcli / workspace / bash</span><small>● LIVE SESSION</small></div>
           <div className="terminal-body" onClick={() => input.current?.focus()}>
             <div className="welcome"><span>✳</span><div><b>CloudCLI workspace initialized</b><p>Linux environment ready. Your files persist between commands.</p><small>Type <button onClick={(e) => { e.stopPropagation(); void run("help"); }}>help</button> to see available commands.</small></div></div>
-            {entries.map((e) => <div className="entry" key={e.id}><div className="cmd"><b>ken@cloudcli ~ $</b> {e.command}</div>{e.stdout && <pre>{e.stdout}</pre>}{e.stderr && <pre className="stderr">{e.stderr}</pre>}{e.error && <pre className="stderr">{e.error}</pre>}{e.exitCode !== undefined && <small className={e.exitCode === 0 ? "success" : "failure"}>{e.exitCode === 0 ? "✓ completed" : "× exit " + e.exitCode} {e.durationMs ? " · " + (e.durationMs / 1000).toFixed(2) + "s" : ""}</small>}</div>)}
+            {entries.map((e) => <div className="entry" key={e.id}><div className="cmd"><b>{shellLabel(e.cwd || "/vercel/sandbox")}</b> {e.command}</div>{e.stdout && <pre>{e.stdout}</pre>}{e.stderr && <pre className="stderr">{e.stderr}</pre>}{e.error && <pre className="stderr">{e.error}</pre>}{e.exitCode !== undefined && <small className={e.exitCode === 0 ? "success" : "failure"}>{e.exitCode === 0 ? "✓ completed" : "× exit " + e.exitCode} {e.durationMs ? " · " + (e.durationMs / 1000).toFixed(2) + "s" : ""}</small>}</div>)}
             {running && <div className="running">◌ Executing in isolated sandbox…</div>}
-            <form className="command-form" onSubmit={submit}><b>ken@cloudcli ~ $</b><textarea ref={input} rows={1} value={command} onChange={(e) => setCommand(e.target.value)} onKeyDown={keyDown} disabled={running} placeholder={running ? "Command running…" : "Enter a command…"} /><button disabled={running || !command.trim()}>↵</button></form>
+            <form className="command-form" onSubmit={submit}><b>{shellLabel(cwd)}</b><textarea ref={input} rows={1} value={command} onChange={(e) => setCommand(e.target.value)} onKeyDown={keyDown} disabled={running} placeholder={running ? "Command running…" : "Enter a command…"} /><button disabled={running || !command.trim()}>↵</button></form>
           </div>
           <footer><span>● Connected to persistent workspace</span><span>ENTER to run · SHIFT + ENTER for new line</span></footer>
         </section>
