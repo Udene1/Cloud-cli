@@ -129,8 +129,8 @@ export default function Home() {
             {entries.map((e) => <div className="entry" key={e.id}><div className="cmd"><b>{shellLabel(e.cwd || "/vercel/sandbox")}</b> {e.command}</div>{e.stdout && <pre>{e.stdout}</pre>}{e.stderr && <pre className="stderr">{e.stderr}</pre>}{e.error && <pre className="stderr">{e.error}</pre>}{e.exitCode !== undefined && <small className={e.exitCode === 0 ? "success" : "failure"}>{e.exitCode === 0 ? "✓ completed" : "× exit " + e.exitCode} {e.durationMs ? " · " + (e.durationMs / 1000).toFixed(2) + "s" : ""}</small>}</div>)}
             {running && <div className="running">◌ Executing in isolated sandbox…</div>}
             <form className="command-form" onSubmit={submit}><b>{shellLabel(cwd)}</b><textarea ref={input} rows={1} value={command} onChange={(e) => setCommand(e.target.value)} onKeyDown={keyDown} disabled={running} placeholder={running ? "Command running…" : "Enter a command…"} /><button disabled={running || !command.trim()}>↵</button></form>
-          </div>
-          <footer><span>● Connected to persistent workspace</span><span>ENTER to run · SHIFT + ENTER for new line</span></footer>
+          </div>}
+          <footer><span>● Connected to persistent workspace</span><span>{terminalMode === "interactive" ? "FULL SHELL · MOBILE CTRL KEYS" : "ENTER to run · SHIFT + ENTER for new line"}</span></footer>
         </section>
         <div className="features"><article><b>⌘ &nbsp; Isolated execution</b><p>Commands run inside a Vercel Sandbox microVM, separate from the web app.</p></article><article><b>▤ &nbsp; Persistent files</b><p>Your workspace files survive between commands and browser sessions.</p></article></div>
         <p className="disclaimer">CloudCLI runs commands you submit. Review destructive commands before execution. App environment secrets are not automatically exposed to the sandbox.</p>
