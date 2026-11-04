@@ -66,11 +66,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Could not initialize the CloudCLI workspace: " + clip(await bootstrap.stderr()) }, { status: 500 });
     }
     if (generated) {
-      await sandbox.writeFiles([{ path: path.join(cwd, generated.name), content: Buffer.from(generated.content, "utf8") }]);
+      const generatedPath = cwd + "/" + generated.name;
+      await sandbox.writeFiles([{ path: generatedPath, content: Buffer.from(generated.content, "utf8") }]);
       const runner = generated.name.endsWith(".py") ? "python3 " : generated.name.endsWith(".ts") ? "npx tsx " : generated.name.endsWith(".html") ? "python3 -m http.server 8000  # then open localhost:8000" : generated.name.endsWith(".jsx") || generated.name.endsWith(".sol") || generated.name.endsWith(".sql") || generated.name.endsWith(".md") ? "cat " : "node ";
       return NextResponse.json({
         ok: true, command, exitCode: 0,
-        stdout: "Created " + path.join(cwd, generated.name) + "\nRun it with: " + runner + generated.name,
+        stdout: "Created " + generatedPath + "\nRun it with: " + runner + generated.name,
         stderr: "", durationMs: Date.now() - started, cwd
       });
     }
