@@ -1,0 +1,17 @@
+@import "@xterm/xterm/css/xterm.css";
+
+.interactive-panel { margin: 14px; border: 1px solid #24313e; border-radius: 10px; overflow: hidden; background: #090d12; }
+.interactive-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; background:#111923; border-bottom:1px solid #24313e; }
+.interactive-status { display:flex; align-items:center; gap:8px; color:#aab8c6; font-size:10px; letter-spacing:.08em; }
+.interactive-status i { width:7px; height:7px; border-radius:50%; background:#d69b45; }
+.interactive-status i.connected { background:#35c58a; box-shadow:0 0 10px #35c58a66; }
+.connect-button { border:1px solid #3b82a8; color:#c8efff; background:#123047; border-radius:6px; padding:8px 12px; font-size:12px; font-weight:600; }
+.connect-button:disabled { opacity:.55; }
+.xterm-host { height: min(52vh, 520px); min-height:260px; padding:10px 8px; overflow:hidden; }
+.xterm-host .xterm { height:100%; }
+.mobile-keys { display:flex; flex-wrap:nowrap; gap:6px; overflow-x:auto; padding:9px; border-top:1px solid #24313e; background:#101720; -webkit-overflow-scrolling:touch; }
+.mobile-keys button { flex:0 0 auto; min-width:42px; min-height:40px; border:1px solid #344353; border-radius:6px; background:#1a2632; color:#d5e0ea; font:600 11px ui-monospace,monospace; padding:0 9px; touch-action:manipulation; }
+.mobile-keys button:disabled { opacity:.35; }
+.interactive-hint { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:9px 12px; color:#8292a2; font-size:11px; border-top:1px solid #24313e; }
+.interactive-hint span { color:#91b9cf; }
+@media (max-width:640px) { .interactive-panel { margin:8px; } .xterm-host { height:48vh; min-height:230px; padding:8px 4px; } .mobile-keys { gap:5px; padding:8px 6px; } .mobile-keys button { min-height:44px; } }
