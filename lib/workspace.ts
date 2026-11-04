@@ -34,7 +34,7 @@ export async function assertSafePath(sandbox: Awaited<ReturnType<typeof getWorks
     if (entry.isSymbolicLink()) throw new Error("Symbolic links cannot be modified through the explorer.");
     actual = await sandbox.fs.realpath(target);
   } catch (error) {
-    if (!allowMissing) throw error;
+    if (!allowMissing || (error instanceof Error && error.message.includes("Symbolic links"))) throw error;
     const parent = await sandbox.fs.realpath(path.dirname(target));
     if (parent !== root && !parent.startsWith(root + path.sep)) throw new Error("Path resolves outside the workspace.");
     return;
