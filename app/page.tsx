@@ -21,7 +21,7 @@ const helpText = [
   "Everything else runs as a shell command inside your persistent Vercel Sandbox workspace.", "",
   "Examples:", "  npx vercel --version", "  npm init -y", "  npx create-next-app@latest my-app",
   "  git clone https://github.com/owner/repo.git", "  ls -la"
-].join("\\n");
+].join("\n");
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
