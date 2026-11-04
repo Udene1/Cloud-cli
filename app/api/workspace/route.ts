@@ -20,6 +20,15 @@ export async function GET(request: NextRequest) {
     sandbox = await getWorkspaceSandbox();
     const target = workspacePath(request.nextUrl.searchParams.get("path") || ".");
     await assertSafePath(sandbox, target);
+    if (op === "download") {
+      const stat = await sandbox.fs.stat(target);
+      if (!stat.isFile()) return NextResponse.json({ error: "Select a file to download." }, { status: 400 });
+      if (stat.size > MAX_UPLOAD) return NextResponse.json({ error: "Downloads are limited to 5 MB." }, { status: 413 });
+      const buffer = await sandbox.readFileToBuffer({ path: target });
+      if (!buffer) return NextResponse.json({ error: "File not found." }, { status: 404 });
+      const filename = encodeURIComponent(path.basename(target));
+      return new NextResponse(new Uint8Array(buffer), { headers: { "Content-Type": "application/octet-stream", "Content-Length": String(buffer.length), "Content-Disposition": "attachment; filename*=UTF-8''" + filename, "Cache-Control": "no-store" } });
+    }
     if (op === "read") {
       const stat = await sandbox.fs.stat(target);
       if (!stat.isFile()) return NextResponse.json({ error: "Select a file to open." }, { status: 400 });
