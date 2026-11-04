@@ -8,6 +8,9 @@ const quick = [
   ["Provision isolated Neon", "npx vercel integration add neon --name fund-database --billing-plan free_v3 --meta region=lhr1 --prefix FUND_DB_", "Requires a Vercel token configured for CloudCLI"],
   ["Generate Node script", "generate node hello.js", "Create a starter file in your workspace"],
   ["Generate Python script", "generate python hello.py", "Create a Python starter file"],
+  ["Generate React component", "generate react App.jsx", "Create a React component starter"],
+  ["Generate Solidity contract", "generate solidity Counter.sol", "Create a Solidity contract starter"],
+  ["Generate SQL schema", "generate sql schema.sql", "Create a PostgreSQL schema starter"],
   ["List workspace files", "ls -la", "Inspect persistent workspace files"]
 ];
 const helpText = [
@@ -17,7 +20,11 @@ const helpText = [
   "  generate node <filename>          Generate a Node.js starter",
   "  generate python <filename>        Generate a Python starter",
   "  generate typescript <filename>    Generate a TypeScript starter",
-  "  generate html <filename>          Generate an HTML starter", "",
+  "  generate html <filename>          Generate an HTML starter",
+  "  generate react <filename>          Generate a React component",
+  "  generate solidity <filename>      Generate a Solidity contract",
+  "  generate sql <filename>           Generate a SQL schema",
+  "  generate markdown <filename>      Generate a Markdown document", "",
   "Everything else runs as a shell command inside your persistent Vercel Sandbox workspace.", "",
   "Examples:", "  npx vercel --version", "  npm init -y", "  npx create-next-app@latest my-app",
   "  git clone https://github.com/owner/repo.git", "  ls -la"
@@ -33,9 +40,12 @@ export default function Home() {
   const [tab, setTab] = useState("Terminal");
   const input = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(1);
+  const history = useRef<string[]>([]);
+  const historyIndex = useRef(-1);
 
   useEffect(() => {
     fetch("/api/auth/session").then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
+    try { history.current = JSON.parse(localStorage.getItem("cloudcli-history") || "[]").filter((x: unknown): x is string => typeof x === "string").slice(-100); } catch { history.current = []; }
   }, []);
 
   async function login(event: FormEvent) {
@@ -52,6 +62,8 @@ export default function Home() {
     const value = raw.trim();
     if (!value || running) return;
     setCommand("");
+    if (history.current[history.current.length - 1] !== value) { history.current = [...history.current, value].slice(-100); try { localStorage.setItem("cloudcli-history", JSON.stringify(history.current)); } catch { /* storage may be unavailable */ } }
+    historyIndex.current = -1;
     if (value === "clear") { setEntries([]); return; }
     if (value === "help") { setEntries((old) => [...old, { id: nextId.current++, command: value, stdout: helpText, exitCode: 0 }]); return; }
     const id = nextId.current++;
@@ -67,7 +79,10 @@ export default function Home() {
   }
   function submit(e: FormEvent) { e.preventDefault(); void run(command); }
   function keyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void run(command); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void run(command); return; }
+    if (e.key === "ArrowUp" && !e.shiftKey && history.current.length) { e.preventDefault(); historyIndex.current = Math.min(historyIndex.current + 1, history.current.length - 1); setCommand(history.current[history.current.length - 1 - historyIndex.current] || ""); }
+    if (e.key === "ArrowDown" && !e.shiftKey && historyIndex.current >= 0) { e.preventDefault(); historyIndex.current -= 1; setCommand(historyIndex.current < 0 ? "" : history.current[history.current.length - 1 - historyIndex.current] || ""); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") { e.preventDefault(); setEntries([]); }
   }
 
   if (authenticated === null) return <main className="loading"><div className="mark">C</div><span>Starting CloudCLI…</span></main>;
