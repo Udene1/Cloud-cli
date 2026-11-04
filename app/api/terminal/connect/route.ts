@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       resume: true,
     });
     await sandbox.runCommand({ cmd: "mkdir", args: ["-p", WORKSPACE_ROOT], cwd: "/" });
-    const { url, token } = await sandbox.currentSession.openInteractive();
+    const { url, token } = await sandbox.openInteractive();
     return NextResponse.json({ ok: true, url, token, cwd });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not open interactive terminal.";
