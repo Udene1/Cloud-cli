@@ -7,7 +7,7 @@ const MAX_COMMAND = 3000;
 const MAX_OUTPUT = 24000;
 
 function generatedFile(command: string): { name: string; content: string } | null | "invalid" {
-  const match = command.trim().match(/^generate\s+(node|python|typescript|html)\s+([a-zA-Z0-9._-]+)$/i);
+  const match = command.trim().match(/^generate\s+(node|python|typescript|html|react|solidity|sql|markdown)\s+([a-zA-Z0-9._-]+)$/i);
   if (!match) return command.trim().startsWith("generate ") ? "invalid" : null;
   const kind = match[1].toLowerCase(), name = match[2];
   if (name.includes("..") || name.startsWith(".") || name.includes("/")) return "invalid";
@@ -15,9 +15,9 @@ function generatedFile(command: string): { name: string; content: string } | nul
     node: '#!/usr/bin/env node\n\nasync function main() {\n  console.log("Hello from CloudCLI");\n}\n\nmain().catch((error) => {\n  console.error(error);\n  process.exitCode = 1;\n});\n',
     python: 'def main() -> None:\n    print("Hello from CloudCLI")\n\nif __name__ == "__main__":\n    main()\n',
     typescript: 'async function main(): Promise<void> {\n  console.log("Hello from CloudCLI");\n}\n\nmain().catch((error: unknown) => {\n  console.error(error);\n  process.exitCode = 1;\n});\n',
-    html: '<!doctype html>\n<html lang="en">\n<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CloudCLI page</title></head>\n<body><main><h1>Hello from CloudCLI</h1></main></body>\n</html>\n'
+    html: '<!doctype html>\n<html lang="en">\n<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CloudCLI page</title></head>\n<body><main><h1>Hello from CloudCLI</h1></main></body>\n</html>\n',\n    react: 'import { useState } from "react";\n\nexport default function App() {\n  const [count, setCount] = useState(0);\n  return <main><h1>CloudCLI starter</h1><button onClick={() => setCount((n) => n + 1)}>Count: {count}</button></main>;\n}\n',\n    solidity: '// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\ncontract Counter {\n    uint256 public count;\n    event CountChanged(uint256 newCount);\n\n    function increment() external {\n        count += 1;\n        emit CountChanged(count);\n    }\n}\n',\n    sql: '-- CloudCLI SQL starter\nCREATE TABLE IF NOT EXISTS items (\n  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n  name TEXT NOT NULL,\n  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n);\n',\n    markdown: '# Project\n\n## Overview\n\nDescribe what this project does.\n\n## Getting started\n\nAdd setup instructions here.\n'
   };
-  const extensions: Record<string, string> = { node: ".js", python: ".py", typescript: ".ts", html: ".html" };
+  const extensions: Record<string, string> = { node: ".js", python: ".py", typescript: ".ts", html: ".html", react: ".jsx", solidity: ".sol", sql: ".sql", markdown: ".md" };
   return { name: name.includes(".") ? name : name + extensions[kind], content: templates[kind] };
 }
 function clip(text: string) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   if (command.includes("\0")) return NextResponse.json({ error: "Null bytes are not allowed." }, { status: 400 });
 
   const generated = generatedFile(command);
-  if (generated === "invalid") return NextResponse.json({ error: "Usage: generate node|python|typescript|html <filename>" }, { status: 400 });
+  if (generated === "invalid") return NextResponse.json({ error: "Usage: generate node|python|typescript|html|react|solidity|sql|markdown <filename>" }, { status: 400 });
 
   let sandbox: Awaited<ReturnType<typeof Sandbox.getOrCreate>> | undefined;
   const started = Date.now();
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     });
     if (generated) {
       await sandbox.writeFiles([{ path: generated.name, content: Buffer.from(generated.content, "utf8") }]);
-      const runner = generated.name.endsWith(".py") ? "python3 " : generated.name.endsWith(".ts") ? "npx tsx " : generated.name.endsWith(".html") ? "open " : "node ";
+      const runner = generated.name.endsWith(".py") ? "python3 " : generated.name.endsWith(".ts") ? "npx tsx " : generated.name.endsWith(".html") ? "python3 -m http.server 8000  # then open localhost:8000" : generated.name.endsWith(".jsx") || generated.name.endsWith(".sol") || generated.name.endsWith(".sql") || generated.name.endsWith(".md") ? "cat " : "node ";
       return NextResponse.json({
         ok: true, command, exitCode: 0,
         stdout: "Created /vercel/sandbox/" + generated.name + "\nRun it with: " + runner + generated.name,
