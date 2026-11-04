@@ -30,6 +30,8 @@ export async function assertSafePath(sandbox: Awaited<ReturnType<typeof getWorks
   const root = await sandbox.fs.realpath(WORKSPACE_ROOT);
   let actual: string;
   try {
+    const entry = await sandbox.fs.lstat(target);
+    if (entry.isSymbolicLink()) throw new Error("Symbolic links cannot be modified through the explorer.");
     actual = await sandbox.fs.realpath(target);
   } catch (error) {
     if (!allowMissing) throw error;
