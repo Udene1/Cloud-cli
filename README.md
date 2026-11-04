@@ -7,7 +7,8 @@ A private, browser-based cloud command centre built with Next.js and Vercel Sand
 - Private single-owner password login.
 - Shell command execution inside a persistent Vercel Sandbox microVM.
 - Workspace files persist between commands and browser sessions.
-- Built-in starter generation: `generate node`, `generate python`, `generate typescript`, and `generate html`.
+- Built-in starter generation: `generate node`, `generate python`, `generate typescript`, `generate html`, `generate react`, `generate solidity`, `generate sql`, and `generate markdown`.
+- Browser-local command history (last 100 commands), recalled with the up/down arrow keys; `Ctrl/Cmd + L` clears the visible terminal.
 - Quick command launcher, output, exit status and execution time.
 
 ## Architecture
