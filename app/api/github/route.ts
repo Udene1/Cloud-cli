@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       if (result.exitCode !== 0) return responseError(result.stderr || result.stdout || "Clone failed.", 502);
       const identity = await run(sandbox, "gh", ["api", "user", "--jq", ".login + \"|\" + (.id|tostring)"]);
       const [login, id] = identity.stdout.trim().split("|");
-      if (identity.exitCode === 0 && login && /^\\d+$/.test(id || "")) {
+      if (identity.exitCode === 0 && login && Number.isSafeInteger(Number(id)) && Number(id) > 0) {
         await run(sandbox, "git", ["config", "user.name", login], target);
         await run(sandbox, "git", ["config", "user.email", id + "+" + login + "@users.noreply.github.com"], target);
       }
