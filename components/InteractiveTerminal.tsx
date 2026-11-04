@@ -5,7 +5,7 @@ import type { Terminal as XTerm } from "@xterm/xterm";
 
 type Props = { cwd: string; onCwdChange?: (cwd: string) => void };
 
-export default function InteractiveTerminal({ cwd }: Props) {
+export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<XTerm | null>(null);
   const socket = useRef<WebSocket | null>(null);
