@@ -45,7 +45,7 @@ export default function WorkspaceExplorer({ onOpenTerminal }: { onOpenTerminal: 
     if (dirty && !window.confirm("Discard unsaved changes?")) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const data = await request("/api/workspace?op=download&path=" + encodeURIComponent(item.path));
+      const data = await request("/api/workspace?op=read&path=" + encodeURIComponent(item.path));
       setSelected(item.path); setContent(data.content); setDirty(false);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not open file."); }
     finally { setBusy(false); }
@@ -102,7 +102,7 @@ export default function WorkspaceExplorer({ onOpenTerminal }: { onOpenTerminal: 
 
   async function download(item: Item) {
     try {
-      const response = await fetch("/api/workspace?op=read&path=" + encodeURIComponent(item.path));
+      const response = await fetch("/api/workspace?op=download&path=" + encodeURIComponent(item.path));
       if (!response.ok) { const data = await response.json(); throw new Error(data.error || "Download failed."); }
       const blob = await response.blob(); const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a"); anchor.href = url; anchor.download = item.name; anchor.click(); URL.revokeObjectURL(url);
