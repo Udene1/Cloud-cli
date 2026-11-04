@@ -60,3 +60,20 @@ vercel integration add neon --name fund-database --billing-plan free_v3 --meta r
 This is a single-owner developer tool, not a public multi-user shell service. Keep deployment access protected by its login. Commands can modify or delete files inside the sandbox. They execute in an isolated microVM rather than in the Next.js function. Network access is enabled for package managers and cloud CLIs. Keep credentials scoped and rotate them if exposed.
 
 The login uses a signed, HTTP-only, SameSite=Strict cookie. Durable login throttling and a dedicated credential vault are future hardening work before supporting multiple users.
+## GitHub integration
+
+The GitHub workspace uses the official GitHub CLI (gh) inside the same persistent Sandbox as the terminal and file explorer.
+
+1. Open **GitHub** in CloudCLI. If gh is missing, install it in the interactive terminal:
+   ```bash
+   sudo apt-get update && sudo apt-get install -y gh
+   ```
+2. Choose **Copy command & open terminal**, then run:
+   ```bash
+   gh auth login --hostname github.com --git-protocol https --web
+   ```
+3. Complete GitHub's one-time device verification and return to the GitHub tab.
+
+CloudCLI then lists your repositories and can clone them into /vercel/sandbox/repositories/, inspect status and commits, create/switch branches, pull, commit, push, and open pull requests. Git credential-helper setup is applied through gh auth setup-git.
+
+GitHub CLI stores its OAuth credential in the private persistent Sandbox user configuration, not in the browser or CloudCLI's application environment. The GitHub API routes are protected by the CloudCLI owner session and expose only fixed Git operations; they do not accept arbitrary shell commands. The commit action blocks common secret filenames (such as .env, private keys, and credential files), but always inspect the staged diff before publishing. Disconnect with gh auth logout --hostname github.com in the terminal; this removes the CLI's stored GitHub credential from the workspace.
