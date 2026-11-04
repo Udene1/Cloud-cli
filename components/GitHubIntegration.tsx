@@ -88,7 +88,7 @@ export default function GitHubIntegration({ onOpenTerminal }: { onOpenTerminal: 
     {!overview && <div className="gh-card">Checking GitHub CLI connection…</div>}
 
     {overview && !overview.installed && <div className="gh-card gh-connect-card">
-      <div className="gh-card-icon">⌘</div><div><h3>GitHub CLI is not available</h3><p>The sandbox needs the official <code>gh</code> command to authenticate securely and work with your repositories. Open the terminal and install it with the Ubuntu package manager, then refresh this page.</p><code className="gh-command">sudo apt-get update && sudo apt-get install -y gh</code><button className="gh-primary" onClick={onOpenTerminal}>Open interactive terminal ↗</button></div>
+      <div className="gh-card-icon">⌘</div><div><h3>GitHub CLI is not available</h3><p>The sandbox needs the official <code>gh</code> command to authenticate securely and work with your repositories. Open the terminal and install it with the Ubuntu package manager, then refresh this page.</p><code className="gh-command">sudo apt-get update && sudo apt-get install -y gh</code><button className="gh-primary" onClick={() => onOpenTerminal("sudo apt-get update && sudo apt-get install -y gh")}>Open terminal to install ↗</button></div>
     </div>}
 
     {overview?.installed && !overview.authenticated && <div className="gh-card gh-connect-card">
