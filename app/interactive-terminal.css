@@ -15,3 +15,9 @@
 .interactive-hint { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:9px 12px; color:#8292a2; font-size:11px; border-top:1px solid #24313e; }
 .interactive-hint span { color:#91b9cf; }
 @media (max-width:640px) { .interactive-panel { margin:8px; } .xterm-host { height:48vh; min-height:230px; padding:8px 4px; } .mobile-keys { gap:5px; padding:8px 6px; } .mobile-keys button { min-height:44px; } }
+
+.terminal-mode-switch { display:flex; gap:4px; margin-left:auto; }
+.terminal-mode-switch button { border:1px solid #344353; background:#151f29; color:#91a3b4; border-radius:5px; padding:5px 8px; font-size:10px; }
+.terminal-mode-switch button.selected { color:#d6efff; border-color:#3b82a8; background:#123047; }
+.mobile-keys button.armed { border-color:#55b8e8; background:#174361; color:#fff; }
+@media (max-width:640px) { .terminal-mode-switch { margin-left:0; } .terminal-head { flex-wrap:wrap; height:auto; min-height:46px; padding:8px 10px; } .terminal-head > small { margin-left:auto; } }
