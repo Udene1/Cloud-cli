@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     if (!installed) return NextResponse.json({ installed: false, authenticated: false, error: "GitHub CLI (gh) is not installed in this workspace yet." });
     const auth = await run(sandbox, "gh", ["auth", "status"]);
     const authenticated = auth.exitCode === 0;
+    if (authenticated) await run(sandbox, "gh", ["auth", "setup-git"]);
     if (op === "connection") {
       return NextResponse.json({ installed, authenticated, message: authenticated ? "GitHub connected." : "GitHub is not connected. Run the device login from the terminal." });
     }
