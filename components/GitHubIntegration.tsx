@@ -6,7 +6,7 @@ type Repo = { nameWithOwner: string; description?: string | null; isPrivate: boo
 type Overview = { installed: boolean; authenticated: boolean; error?: string; message?: string; repositories?: Repo[] };
 type Status = { path: string; branch: string; status: string; remote: string; log: string; branches: string[] };
 
-export default function GitHubIntegration({ onOpenTerminal }: { onOpenTerminal: () => void }) {
+export default function GitHubIntegration({ onOpenTerminal }: { onOpenTerminal: (command: string) => void }) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
@@ -72,7 +72,7 @@ export default function GitHubIntegration({ onOpenTerminal }: { onOpenTerminal: 
   async function copyConnectCommand() {
     try { await navigator.clipboard.writeText("gh auth login --hostname github.com --git-protocol https --web"); setNotice("Login command copied. Paste it into the interactive terminal."); }
     catch { setNotice("Run this in the interactive terminal: gh auth login --hostname github.com --git-protocol https --web"); }
-    onOpenTerminal();
+    onOpenTerminal("gh auth login --hostname github.com --git-protocol https --web");
   }
 
   const repos = overview?.repositories || [];
