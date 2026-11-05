@@ -51,7 +51,7 @@ function stringArg(args: Record<string, unknown>, key: string, max = 1000) {
   return value;
 }
 function safeRepo(value: unknown) {
-  if (typeof value !== "string" || !/^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$/.test(value)) throw new Error("repository must be owner/name.");
+  if (typeof value !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) throw new Error("repository must be owner/name.");
   return value;
 }
 function safeBranch(value: unknown) {
