@@ -139,7 +139,7 @@ async function callTool(name: string, rawArgs: unknown): Promise<ToolResult> {
       await assertSafePath(sandbox, cwd);
       const stat = await sandbox.fs.stat(cwd);
       if (!stat.isDirectory()) throw new Error("Working directory must be a directory.");
-      const wrapped = 'cd -- "$1" || exit 1\\n' + command + '\\n__cloudcli_exit=$?\\nprintf \'\\n__CLOUDCLI_CWD__%s\' "$PWD"\\nexit "$__cloudcli_exit"';
+      const wrapped = 'cd -- "$1" || exit 1\n' + command + '\n__cloudcli_exit=$?\nprintf \'\n__CLOUDCLI_CWD__%s\' "$PWD"\nexit "$__cloudcli_exit"';
       const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", wrapped, "cloudcli", cwd], cwd: "/" });
       const raw = await result.stdout();
       const marker = "\n__CLOUDCLI_CWD__";
