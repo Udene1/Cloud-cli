@@ -77,3 +77,26 @@ The GitHub workspace uses the official GitHub CLI (gh) inside the same persisten
 CloudCLI then lists your repositories and can clone them into /vercel/sandbox/repositories/, inspect status and commits, create/switch branches, pull, commit, push, and open pull requests. Git credential-helper setup is applied through gh auth setup-git.
 
 GitHub CLI stores its OAuth credential in the private persistent Sandbox user configuration, not in the browser or CloudCLI's application environment. The GitHub API routes are protected by the CloudCLI owner session and expose only fixed Git operations; they do not accept arbitrary shell commands. The commit action blocks common secret filenames (such as .env, private keys, and credential files), but always inspect the staged diff before publishing. Disconnect with gh auth logout --hostname github.com in the terminal; this removes the CLI's stored GitHub credential from the workspace.
+
+## MCP server (foundation)
+
+CloudCLI exposes a stateless MCP Streamable HTTP endpoint at `/api/mcp`. The connected model supplies reasoning; CloudCLI supplies persistent workspace and shell execution tools.
+
+Configure `CLOUDCLI_MCP_TOKEN` as an encrypted Vercel environment variable (Production, Preview, and Development as appropriate). Generate a high-entropy random token of at least 32 characters. MCP clients must send it as:
+
+```http
+Authorization: Bearer <CLOUDCLI_MCP_TOKEN>
+```
+
+Endpoint: `https://<your-cloudcli-host>/api/mcp`
+
+Initial tools:
+- `workspace_list` — list workspace files and directories.
+- `workspace_read` — read a UTF-8 text file (512 KB limit).
+- `workspace_write` — create or replace a UTF-8 text file (512 KB limit).
+- `workspace_mkdir` — create a directory.
+- `terminal_execute` — execute a shell command (3,000 character limit) and return exit status and output.
+
+All file paths and working directories are confined to `/vercel/sandbox`. The sandbox is persistent across tool calls. The endpoint implements JSON-RPC initialization, tool discovery, tool calls, and notifications over HTTP; it does not require a separate AI model or memory service.
+
+**Security:** This is an owner-level execution credential. Anyone holding the MCP token can read and modify workspace files and run shell commands in the persistent sandbox, including commands that may access credentials already installed in that sandbox. Only connect trusted MCP clients. Keep the token encrypted, never paste it into project files or chat, and rotate it immediately if exposed. CloudCLI does not send its Vercel application environment variables to the sandbox through this MCP endpoint.
