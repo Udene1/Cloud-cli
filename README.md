@@ -80,7 +80,7 @@ GitHub CLI stores its OAuth credential in the private persistent Sandbox user co
 
 ## MCP server (foundation)
 
-CloudCLI exposes a stateless MCP Streamable HTTP endpoint at `/api/mcp`. The connected model supplies reasoning; CloudCLI supplies persistent workspace and shell execution tools.
+CloudCLI exposes a stateless MCP Streamable HTTP endpoint at `/api/mcp`. The connected model supplies reasoning; CloudCLI supplies persistent workspace, shell execution, and GitHub operations through one MCP connection.
 
 Configure `CLOUDCLI_MCP_TOKEN` as an encrypted Vercel environment variable (Production, Preview, and Development as appropriate). Generate a high-entropy random token of at least 32 characters. MCP clients must send it as:
 
@@ -96,7 +96,32 @@ Initial tools:
 - `workspace_write` — create or replace a UTF-8 text file (512 KB limit).
 - `workspace_mkdir` — create a directory.
 - `terminal_execute` — execute a shell command (3,000 character limit) and return exit status and output.
+- `github_connection` — check GitHub CLI installation and authentication.
+- `github_list_repositories` — list accessible repositories.
+- `github_clone_repository` — clone a repository into the workspace.
+- `github_repository_status` — inspect branch, working tree, remotes and recent commits.
+- `github_create_branch` / `github_switch_branch` — manage local branches.
+- `github_pull` — fast-forward pull the current branch.
+- `github_commit` — stage and commit changes, with common secret-file blocking.
+- `github_push` — publish the current branch to GitHub.
+- `github_list_pull_requests` / `github_create_pull_request` — inspect and open pull requests.
+
+GitHub tools use the official `gh` CLI already authenticated in the persistent sandbox through the CloudCLI GitHub setup flow. Connect GitHub in the CloudCLI interface before calling these tools.
 
 All file paths and working directories are confined to `/vercel/sandbox`. The sandbox is persistent across tool calls. The endpoint implements JSON-RPC initialization, tool discovery, tool calls, and notifications over HTTP; it does not require a separate AI model or memory service.
 
 **Security:** This is an owner-level execution credential. Anyone holding the MCP token can read and modify workspace files and run shell commands in the persistent sandbox, including commands that may access credentials already installed in that sandbox. Only connect trusted MCP clients. Keep the token encrypted, never paste it into project files or chat, and rotate it immediately if exposed. CloudCLI does not send its Vercel application environment variables to the sandbox through this MCP endpoint.
+
+
+### Connecting an MCP client
+
+Use the deployed HTTPS endpoint as a remote Streamable HTTP MCP server. Configure the client to send the `CLOUDCLI_MCP_TOKEN` value as a Bearer authorization header. The endpoint must be reachable by the MCP client; if Vercel Deployment Protection is enabled, allow the remote client to reach the MCP route or use a deployment configuration that supports authenticated external MCP traffic. Do not disable the MCP bearer-token check.
+
+For Claude, add CloudCLI as a remote/custom connector using the endpoint URL and bearer-token authentication where supported by the Claude client you are using. The exact connector UI differs between Claude web and Claude Desktop; use the client's remote MCP connector flow rather than a local stdio configuration.
+
+Before connecting a model, verify the endpoint with an MCP Inspector or compatible client:
+1. Initialize the MCP session.
+2. Confirm the server reports `cloudcli`.
+3. List tools and confirm workspace and GitHub tools appear.
+4. Call `workspace_list`.
+5. Call `terminal_execute` with a harmless command such as `pwd`.
