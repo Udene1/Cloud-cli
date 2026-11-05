@@ -2,6 +2,7 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import InteractiveTerminal from "@/components/InteractiveTerminal";
 import WorkspaceExplorer from "@/components/WorkspaceExplorer";
+import GitHubIntegration from "@/components/GitHubIntegration";
 import "./interactive-terminal.css";
 
 type Entry = { id: number; command: string; cwd?: string; stdout?: string; stderr?: string; exitCode?: number; durationMs?: number; error?: string };
@@ -49,6 +50,7 @@ export default function Home() {
   const [running, setRunning] = useState(false);
   const [tab, setTab] = useState("Terminal");
   const [terminalMode, setTerminalMode] = useState<"commands" | "interactive">("interactive");
+  const [terminalNotice, setTerminalNotice] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(1);
   const history = useRef<string[]>([]);
@@ -117,17 +119,19 @@ export default function Home() {
       <button className={tab === "Terminal" ? "nav active" : "nav"} onClick={() => setTab("Terminal")}>⌘ &nbsp; Terminal</button>
       <button className={tab === "Quick commands" ? "nav active" : "nav"} onClick={() => setTab("Quick commands")}>⚡ &nbsp; Quick commands</button>
       <button className={tab === "Files" ? "nav active" : "nav"} onClick={() => setTab("Files")}>▤ &nbsp; Files</button>
+      <button className={tab === "GitHub" ? "nav active" : "nav"} onClick={() => setTab("GitHub")}>⑂ &nbsp; GitHub</button>
       <div className="side-bottom"><div className="online"><i/> <span><b>Sandbox ready</b><small>Persistent workspace</small></span></div><button className="account" onClick={logout}><span className="avatar">K</span><span><b>Owner workspace</b><small>Sign out</small></span></button></div>
     </aside>
     <section className="main">
       <header className="topbar"><span>Workspace&nbsp; / &nbsp;<b>{tab}</b></span><div><small>LHR · LONDON</small><strong>⌑ PRIVATE</strong></div></header>
       <div className="content">
-        <div className="heading"><div><p className="eyebrow">CLOUD OPERATIONS / 01</p><h1>{tab}</h1><p className="muted">{tab === "Terminal" ? "Run commands, generate code and work across your cloud projects." : "One-click workflows for common development and infrastructure tasks."}</p></div><span className="ready"><i/> SYSTEM READY</span></div>
+        <div className="heading"><div><p className="eyebrow">CLOUD OPERATIONS / 01</p><h1>{tab}</h1><p className="muted">{tab === "Terminal" ? "Run commands, generate code and work across your cloud projects." : tab === "GitHub" ? "Connect repositories, manage branches, commit changes and open pull requests." : "One-click workflows for common development and infrastructure tasks."}</p></div><span className="ready"><i/> SYSTEM READY</span></div>
         {tab === "Quick commands" && <div className="quick-grid">{quick.map(([label, cmd, detail]) => <button className="quick" key={label} onClick={() => { setTab("Terminal"); void run(cmd); }}><b>{label} ↗</b><small>{detail}</small><code>{cmd}</code></button>)}</div>}
         {tab === "Files" && <WorkspaceExplorer onOpenTerminal={(directory) => { setCwd(directory); try { localStorage.setItem("cloudcli-cwd", directory); } catch { /* storage may be unavailable */ } setTab("Terminal"); setTerminalMode("interactive"); }} />}
+        {tab === "GitHub" && <GitHubIntegration onOpenTerminal={(loginCommand) => { setTerminalNotice(loginCommand); setTab("Terminal"); setTerminalMode("interactive"); }} />}
         {tab === "Terminal" && <section className="terminal">
           <div className="terminal-head"><div className="lights"><i/><i/><i/></div><span>cloudcli / workspace / bash</span><div className="terminal-mode-switch"><button className={terminalMode === "interactive" ? "selected" : ""} onClick={() => setTerminalMode("interactive")}>Interactive</button><button className={terminalMode === "commands" ? "selected" : ""} onClick={() => setTerminalMode("commands")}>Command mode</button></div><small>● WORKSPACE</small></div>
-          {terminalMode === "interactive" ? <InteractiveTerminal cwd={cwd} /> : <div className="terminal-body" onClick={() => input.current?.focus()}>
+          {terminalMode === "interactive" ? <>{terminalNotice && <div className="terminal-notice"><span>GitHub setup · paste this command into the shell</span><code>{terminalNotice}</code><button onClick={() => { void navigator.clipboard.writeText(terminalNotice); }}>Copy command</button></div>}<InteractiveTerminal cwd={cwd} /></> : <div className="terminal-body" onClick={() => input.current?.focus()}>
             <div className="welcome"><span>✳</span><div><b>CloudCLI workspace initialized</b><p>Linux environment ready. Your files persist between commands.</p><small>Type <button onClick={(e) => { e.stopPropagation(); void run("help"); }}>help</button> to see available commands.</small></div></div>
             {entries.map((e) => <div className="entry" key={e.id}><div className="cmd"><b>{shellLabel(e.cwd || "/vercel/sandbox")}</b> {e.command}</div>{e.stdout && <pre>{e.stdout}</pre>}{e.stderr && <pre className="stderr">{e.stderr}</pre>}{e.error && <pre className="stderr">{e.error}</pre>}{e.exitCode !== undefined && <small className={e.exitCode === 0 ? "success" : "failure"}>{e.exitCode === 0 ? "✓ completed" : "× exit " + e.exitCode} {e.durationMs ? " · " + (e.durationMs / 1000).toFixed(2) + "s" : ""}</small>}</div>)}
             {running && <div className="running">◌ Executing in isolated sandbox…</div>}
@@ -135,8 +139,8 @@ export default function Home() {
           </div>}
           <footer><span>● Connected to persistent workspace</span><span>{terminalMode === "interactive" ? "FULL SHELL · MOBILE CTRL KEYS" : "ENTER to run · SHIFT + ENTER for new line"}</span></footer>
         </section>}
-        {tab !== "Files" && <div className="features"><article><b>⌘ &nbsp; Isolated execution</b><p>Commands run inside a Vercel Sandbox microVM, separate from the web app.</p></article><article><b>▤ &nbsp; Persistent files</b><p>Your workspace files survive between commands and browser sessions.</p></article></div>}
-        {tab !== "Files" && <p className="disclaimer">CloudCLI runs commands you submit. Review destructive commands before execution. App environment secrets are not automatically exposed to the sandbox.</p>}
+        {tab !== "Files" && tab !== "GitHub" && <div className="features"><article><b>⌘ &nbsp; Isolated execution</b><p>Commands run inside a Vercel Sandbox microVM, separate from the web app.</p></article><article><b>▤ &nbsp; Persistent files</b><p>Your workspace files survive between commands and browser sessions.</p></article></div>}
+        {tab !== "Files" && tab !== "GitHub" && <p className="disclaimer">CloudCLI runs commands you submit. Review destructive commands before execution. App environment secrets are not automatically exposed to the sandbox.</p>}
       </div>
     </section>
   </main>;
