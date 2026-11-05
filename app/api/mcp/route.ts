@@ -81,6 +81,9 @@ const TOOLS = [
   { name: "github_clone_repository", description: "Clone an accessible GitHub repository into the CloudCLI workspace under repositories/owner/name.", inputSchema: { type: "object", properties: { repository: { type: "string", description: "GitHub owner/repository." } }, required: ["repository"], additionalProperties: false }, annotations: { destructiveHint: true } },
   { name: "github_repository_status", description: "Inspect branch, working-tree status, remotes, recent commits and local branches for a cloned repository.", inputSchema: { type: "object", properties: { path: { type: "string", description: "Workspace-relative path to the cloned repository." } }, required: ["path"], additionalProperties: false }, annotations: { readOnlyHint: true } },
   { name: "github_create_branch", description: "Create and switch to a new branch in a cloned repository.", inputSchema: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path", "branch"], additionalProperties: false }, annotations: { destructiveHint: true } },
+  { name: "github_switch_branch", description: "Switch to an existing local branch in a cloned repository.", inputSchema: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path", "branch"], additionalProperties: false }, annotations: { destructiveHint: true } },
+  { name: "github_pull", description: "Fast-forward pull the current branch from its upstream remote.", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"], additionalProperties: false }, annotations: { destructiveHint: true } },
+  { name: "github_list_pull_requests", description: "List open pull requests for a cloned repository.", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"], additionalProperties: false }, annotations: { readOnlyHint: true } },
   { name: "github_commit", description: "Stage and commit repository changes. Common secret files are blocked; inspect the diff before pushing.", inputSchema: { type: "object", properties: { path: { type: "string" }, message: { type: "string", maxLength: 200 } }, required: ["path", "message"], additionalProperties: false }, annotations: { destructiveHint: true } },
   { name: "github_push", description: "Push the current branch to its origin remote. This publishes committed changes to GitHub.", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"], additionalProperties: false }, annotations: { destructiveHint: true } },
   { name: "github_create_pull_request", description: "Create a pull request from the current branch using GitHub CLI.", inputSchema: { type: "object", properties: { path: { type: "string" }, title: { type: "string", maxLength: 200 }, body: { type: "string", maxLength: 5000 } }, required: ["path", "title"], additionalProperties: false }, annotations: { destructiveHint: true } }
@@ -201,6 +204,22 @@ async function callTool(name: string, rawArgs: unknown): Promise<ToolResult> {
         const result = await run(sandbox, "git", ["switch", "-c", branchName], directory);
         if (result.exitCode !== 0) throw new Error(result.stderr || "Could not create branch.");
         return textResult({ ok: true, branch: branchName, output: result.stdout });
+      }
+      if (name === "github_switch_branch") {
+        const branchName = safeBranch(stringArg(args, "branch", 100));
+        const result = await run(sandbox, "git", ["switch", branchName], directory);
+        if (result.exitCode !== 0) throw new Error(result.stderr || "Could not switch branch.");
+        return textResult({ ok: true, branch: branchName, output: result.stdout });
+      }
+      if (name === "github_pull") {
+        const result = await run(sandbox, "git", ["pull", "--ff-only"], directory);
+        if (result.exitCode !== 0) throw new Error(result.stderr || "Fast-forward pull failed.");
+        return textResult({ ok: true, output: result.stdout || "Already up to date." });
+      }
+      if (name === "github_list_pull_requests") {
+        const result = await run(sandbox, "gh", ["pr", "list", "--state", "open", "--json", "number,title,url,headRefName,baseRefName,author", "--limit", "50"], directory);
+        if (result.exitCode !== 0) throw new Error(result.stderr || "Could not list pull requests.");
+        return textResult(JSON.parse(result.stdout));
       }
       if (name === "github_commit") {
         const message = safeMessage(args.message);
