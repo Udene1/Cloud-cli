@@ -139,8 +139,8 @@ async function callTool(name: string, rawArgs: unknown): Promise<ToolResult> {
       await assertSafePath(sandbox, cwd);
       const stat = await sandbox.fs.stat(cwd);
       if (!stat.isDirectory()) throw new Error("Working directory must be a directory.");
-      const wrapped = "cd " + JSON.stringify(cwd) + " || exit 1\n" + command + "\n__cloudcli_exit=$?\nprintf '\\n__CLOUDCLI_CWD__%s' \"$PWD\"\nexit \"$__cloudcli_exit\"";
-      const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", wrapped], cwd: "/" });
+      const wrapped = 'cd -- "$1" || exit 1\\n' + command + '\\n__cloudcli_exit=$?\\nprintf \'\\n__CLOUDCLI_CWD__%s\' "$PWD"\\nexit "$__cloudcli_exit"';
+      const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", wrapped, "cloudcli", cwd], cwd: "/" });
       const raw = await result.stdout();
       const marker = "\n__CLOUDCLI_CWD__";
       const index = raw.lastIndexOf(marker);
@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: { tools: {} },
       serverInfo: { name: "cloudcli", version: "0.1.0" },
-      instructions: "CloudCLI is an execution environment. The connected model supplies reasoning; CloudCLI supplies workspace and terminal tools. All paths are confined to the persistent workspace."
+      instructions: "CloudCLI is an execution environment. The connected model supplies reasoning; CloudCLI supplies workspace, terminal, and GitHub tools. Workspace file operations and the initial working directory are confined to the persistent workspace. Shell commands can access other files and credentials available inside the isolated microVM; treat this server as full sandbox access."
     });
   }
   if (message.method === "ping") return rpc(message.id, {});
