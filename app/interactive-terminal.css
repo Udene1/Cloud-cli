@@ -21,3 +21,15 @@
 .terminal-mode-switch button.selected { color:#d6efff; border-color:#3b82a8; background:#123047; }
 .mobile-keys button.armed { border-color:#55b8e8; background:#174361; color:#fff; }
 @media (max-width:640px) { .terminal-mode-switch { margin-left:0; } .terminal-head { flex-wrap:wrap; height:auto; min-height:46px; padding:8px 10px; } .terminal-head > small { margin-left:auto; } }
+
+
+.external-action { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:11px 13px; border-bottom:1px solid #29475a; background:#102331; color:#d6eaf5; }
+.external-action-copy { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.external-action-copy b { font-size:12px; }
+.external-action-copy span { color:#9bb2c2; font-size:10px; }
+.external-action-copy code { width:max-content; margin-top:3px; padding:5px 8px; border:1px solid #35566b; border-radius:5px; background:#091720; color:#9fe1ff; font:600 14px ui-monospace,monospace; letter-spacing:.12em; }
+.external-action-buttons { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.external-action-buttons button { min-height:36px; padding:0 10px; border:1px solid #3b596d; border-radius:6px; background:#1a2d3b; color:#d6eaf5; font-size:11px; font-weight:600; }
+.external-action-buttons .external-open { border-color:#3986ac; background:#123c55; color:#d8f3ff; }
+.external-action-buttons .external-dismiss { min-width:34px; padding:0; font-size:18px; }
+@media (max-width:640px) { .external-action { align-items:flex-start; } .external-action-buttons { width:100%; } .external-action-buttons button { min-height:42px; } }
