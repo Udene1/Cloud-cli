@@ -4,6 +4,39 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Terminal as XTerm } from "@xterm/xterm";
 
 type Props = { cwd: string; onCwdChange?: (cwd: string) => void };
+type ExternalAction = { url: string; host: string; trusted: boolean; code?: string };
+
+const TRUSTED_HOSTS: Record<string, string> = {
+  "github.com": "GitHub",
+  "www.github.com": "GitHub",
+  "vercel.com": "Vercel",
+  "www.vercel.com": "Vercel",
+  "cloudflare.com": "Cloudflare",
+  "dash.cloudflare.com": "Cloudflare",
+  "neon.tech": "Neon",
+  "www.neon.tech": "Neon",
+  "accounts.google.com": "Google",
+  "npmjs.com": "npm",
+  "www.npmjs.com": "npm",
+};
+
+function detectExternalAction(raw: string): ExternalAction | null {
+  // Strip terminal colour/control sequences before inspecting output.
+  const clean = raw.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "").replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, "");
+  const match = clean.match(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/[^\s"'<>]*)?/);
+  if (!match) return null;
+  const candidate = match[0].replace(/[),.;!?]+$/, "");
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "https:") return null;
+    const host = parsed.hostname.toLowerCase();
+    const trusted = Object.prototype.hasOwnProperty.call(TRUSTED_HOSTS, host);
+    const code = clean.match(/\b[A-Z0-9]{4}-[A-Z0-9]{4}\b/)?.[0];
+    return { url: parsed.toString(), host, trusted, ...(code ? { code } : {}) };
+  } catch {
+    return null;
+  }
+}
 
 export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -15,12 +48,25 @@ export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
   const [state, setState] = useState<"disconnected" | "connecting" | "connected" | "error">("disconnected");
   const [message, setMessage] = useState("Connect to start an interactive Bash session.");
   const [busy, setBusy] = useState(false);
+  const [externalAction, setExternalAction] = useState<ExternalAction | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const writeOutput = useCallback((value: string | Uint8Array) => {
+    terminal.current?.write(value);
+    const text = typeof value === "string" ? value : new TextDecoder().decode(value);
+    const detected = detectExternalAction(text);
+    if (detected) {
+      setExternalAction((previous) => previous?.url === detected.url && previous.code === detected.code ? previous : detected);
+      setCopied(false);
+    }
+  }, []);
 
   const connect = useCallback(async () => {
     if (busy || state === "connected") return;
     setBusy(true);
     setState("connecting");
     setMessage("Starting your persistent shell…");
+    setExternalAction(null);
     try {
       const response = await fetch("/api/terminal/connect", {
         method: "POST",
@@ -61,11 +107,11 @@ export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
             } else if (control.type === "error") {
               setMessage(control.message || "Terminal error.");
             }
-          } catch { terminal.current?.write(event.data); }
+          } catch { writeOutput(event.data); }
         } else if (event.data instanceof ArrayBuffer) {
-          terminal.current?.write(new Uint8Array(event.data));
+          writeOutput(new Uint8Array(event.data));
         } else if (event.data instanceof Blob) {
-          void event.data.arrayBuffer().then((buffer) => terminal.current?.write(new Uint8Array(buffer)));
+          void event.data.arrayBuffer().then((buffer) => writeOutput(new Uint8Array(buffer)));
         }
       };
       ws.onerror = () => { setState("error"); setMessage("Terminal connection failed. Try reconnecting."); };
@@ -77,7 +123,7 @@ export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Terminal connection failed.");
     } finally { setBusy(false); }
-  }, [busy, cwd, state]);
+  }, [busy, cwd, state, writeOutput]);
 
   useEffect(() => {
     if (!host.current || terminal.current) return;
@@ -141,6 +187,32 @@ export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
     }
   }
 
+  async function copyCode() {
+    if (!externalAction?.code) return;
+    try {
+      await navigator.clipboard.writeText(externalAction.code);
+      setCopied(true);
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = externalAction.code;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      const ok = document.execCommand("copy");
+      field.remove();
+      setCopied(ok);
+    }
+  }
+
+  function openExternal() {
+    if (!externalAction) return;
+    const service = TRUSTED_HOSTS[externalAction.host];
+    if (!service && !window.confirm(`This command wants to open ${externalAction.host}. Only continue if you trust the source. Open this site?`)) return;
+    window.open(externalAction.url, "_blank", "noopener,noreferrer");
+  }
+
   const shortcuts = [
     ["Tab", "\t"], ["Esc", "\x1b"], ["Ctrl+C", "\x03"], ["Ctrl+D", "\x04"],
     ["Ctrl+O · Save", "\x0f"], ["Ctrl+X · Exit", "\x18"],
@@ -154,6 +226,18 @@ export default function InteractiveTerminal({ cwd, onCwdChange }: Props) {
         {busy ? "Connecting…" : state === "connected" ? "Disconnect" : "Connect shell ↗"}
       </button>
     </div>
+    {externalAction && <div className="external-action" role="status">
+      <div className="external-action-copy">
+        <b>{externalAction.code ? "Authentication needs your approval" : "External link detected"}</b>
+        <span>{TRUSTED_HOSTS[externalAction.host] || externalAction.host} · {externalAction.trusted ? "Recognized service" : "Unverified destination"}</span>
+        {externalAction.code && <code>{externalAction.code}</code>}
+      </div>
+      <div className="external-action-buttons">
+        {externalAction.code && <button type="button" onClick={() => void copyCode()}>{copied ? "Code copied ✓" : "Copy code"}</button>}
+        <button type="button" className="external-open" onClick={openExternal}>Open {TRUSTED_HOSTS[externalAction.host] || "website"} ↗</button>
+        <button type="button" className="external-dismiss" onClick={() => setExternalAction(null)} aria-label="Dismiss external link">×</button>
+      </div>
+    </div>}
     <div className="xterm-host" ref={host} onClick={() => terminal.current?.focus()} />
     <div className="mobile-keys" aria-label="Terminal special keys">
       <button type="button" className={ctrlArmed ? "armed" : ""} onClick={armCtrl} disabled={state !== "connected"}>Ctrl{ctrlArmed ? " · armed" : ""}</button>
