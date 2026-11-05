@@ -108,7 +108,7 @@ Initial tools:
 
 GitHub tools use the official `gh` CLI already authenticated in the persistent sandbox through the CloudCLI GitHub setup flow. Connect GitHub in the CloudCLI interface before calling these tools.
 
-All file paths and working directories are confined to `/vercel/sandbox`. The sandbox is persistent across tool calls. The endpoint implements JSON-RPC initialization, tool discovery, tool calls, and notifications over HTTP; it does not require a separate AI model or memory service.
+Workspace file operations and the initial working directory are constrained to `/vercel/sandbox`. The shell itself is powerful: a command can change directories, access other files available inside the microVM, use the network, or invoke installed credentials. Treat the MCP token as full control of that sandbox, not as a filesystem-only permission. The sandbox is persistent across tool calls. The endpoint implements JSON-RPC initialization, tool discovery, tool calls, and notifications over HTTP; it does not require a separate AI model or memory service.
 
 **Security:** This is an owner-level execution credential. Anyone holding the MCP token can read and modify workspace files and run shell commands in the persistent sandbox, including commands that may access credentials already installed in that sandbox. Only connect trusted MCP clients. Keep the token encrypted, never paste it into project files or chat, and rotate it immediately if exposed. CloudCLI does not send its Vercel application environment variables to the sandbox through this MCP endpoint.
 
